@@ -96,37 +96,61 @@ async function playerPriceValue(data, Grade) {
           );
 
           for (let grade of grades) {
-            await page.waitForSelector(".en_selector_wrap .en_wrap", {
-              timeout: 5000,
-            });
-            await page.click(".en_selector_wrap .en_wrap");
+            try {
+              await page.waitForSelector(".en_selector_wrap .en_wrap", {
+                timeout: 5000,
+              });
+              await page.click(".en_selector_wrap .en_wrap");
 
-            await page.waitForSelector(`.selector_item.en_level${grade}`, {
-              timeout: 5000,
-            });
-            await page.click(`.selector_item.en_level${grade}`);
+              await page.waitForSelector(
+                `.selector_item.en_level${grade}:visible`,
+                { timeout: 5000 }
+              );
+              const elements = await page.$$(`.selector_item.en_level${grade}`);
+              for (const el of elements) {
+                const visible = await el.isVisible();
+                if (visible) {
+                  await el.click();
+                  break;
+                }
+              }
 
-            // `.txt strong` 요소의 텍스트가 로드될 때까지 대기
-            await page.waitForTimeout(500);
+              // 일부 DOM 갱신 대기
+              await page.waitForTimeout(500);
 
-            await page.waitForFunction(
-              () => {
+              // 가격 텍스트가 로드될 때까지 대기
+              await page.waitForFunction(
+                () => {
+                  const element = document.querySelector(".txt strong");
+                  return element && element.textContent.trim() !== "";
+                },
+                { timeout: 5000 }
+              );
+
+              const datacenterTitle = await page.evaluate(() => {
                 const element = document.querySelector(".txt strong");
-                return element && element.textContent.trim() !== "";
-              },
-              { timeout: 5000 }
-            ); // 10초 제한 (필요 시 조절)
+                return element ? element.textContent.trim() : null;
+              });
 
-            let datacenterTitle = await page.evaluate(() => {
-              const element = document.querySelector(".txt strong").textContent;
-              return element;
-            });
-            console.log(`✔ ID ${id} / Grade ${grade} → ${datacenterTitle}`);
+              if (!datacenterTitle) {
+                console.log(
+                  `⚠️ ID ${id}, Grade ${grade} → 텍스트 없음 (건너뜀)`
+                );
+                continue;
+              }
 
-            results.push({
-              id: id,
-              prices: { grade, price: datacenterTitle },
-            });
+              console.log(`✔ ID ${id} / Grade ${grade} → ${datacenterTitle}`);
+
+              results.push({
+                id,
+                prices: { grade, price: datacenterTitle },
+              });
+            } catch (err) {
+              console.log(
+                `⛔ ID ${id}, Grade ${grade} → 오류 발생, 건너뜀 (${err.message})`
+              );
+              continue;
+            }
           }
         } catch (err) {
           console.error(`❌ Error for ID ${id}, Grade ${grades}:`, err.message);
