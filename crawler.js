@@ -107,7 +107,7 @@ async function playerPriceValue(data, Grade) {
             await page.click(`.selector_item.en_level${grade}`);
 
             // `.txt strong` 요소의 텍스트가 로드될 때까지 대기
-            await page.waitForTimeout(150);
+            await page.waitForTimeout(300);
 
             await page.waitForFunction(
               () => {
