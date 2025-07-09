@@ -73,31 +73,29 @@ async function playerPriceValue(data, Grade) {
     for (const player of data) {
       if (playerRestrictions.includes(Number(player.id))) {
         continue;
-      }
+      } else {
+        const { id } = player;
+        const url = `https://fconline.nexon.com/DataCenter/PlayerInfo?spid=${id}&n1Strong=1`;
+        const page = await context.newPage();
+        await blockUnwantedResources(page);
 
-      const { id } = player;
-      const url = `https://fconline.nexon.com/DataCenter/PlayerInfo?spid=${id}&n1Strong=1`;
-      const page = await context.newPage();
-      await blockUnwantedResources(page);
+        try {
+          console.log(`🌍 Navigating to ${url}`);
+          await page.goto(url, { waitUntil: "domcontentloaded" });
 
-      try {
-        console.log(`🌍 Navigating to ${url}`);
-        await page.goto(url, { waitUntil: "domcontentloaded" });
+          await page.waitForFunction(
+            () => {
+              const element = document.querySelector(".txt strong");
+              return (
+                element &&
+                element.getAttribute("title") &&
+                element.getAttribute("title").trim() !== ""
+              );
+            },
+            { timeout: 5000 }
+          );
 
-        await page.waitForFunction(
-          () => {
-            const element = document.querySelector(".txt strong");
-            return (
-              element &&
-              element.getAttribute("title") &&
-              element.getAttribute("title").trim() !== ""
-            );
-          },
-          { timeout: 5000 }
-        );
-
-        for (let grade of grades) {
-          try {
+          for (let grade of grades) {
             await page.waitForSelector(".en_selector_wrap .en_wrap", {
               timeout: 5000,
             });
@@ -108,7 +106,8 @@ async function playerPriceValue(data, Grade) {
             });
             await page.click(`.selector_item.en_level${grade}`);
 
-            await page.waitForTimeout(400);
+            // `.txt strong` 요소의 텍스트가 로드될 때까지 대기
+            await page.waitForTimeout(500);
 
             await page.waitForFunction(
               () => {
@@ -116,35 +115,28 @@ async function playerPriceValue(data, Grade) {
                 return element && element.textContent.trim() !== "";
               },
               { timeout: 5000 }
-            );
+            ); // 10초 제한 (필요 시 조절)
 
-            const datacenterTitle = await page.evaluate(() => {
-              const element = document.querySelector(".txt strong");
-              return element ? element.textContent.trim() : null;
+            let datacenterTitle = await page.evaluate(() => {
+              const element = document.querySelector(".txt strong").textContent;
+              return element;
             });
-
-            if (!datacenterTitle) {
-              console.log(`⚠️ ID ${id}, Grade ${grade} → 텍스트 없음 (건너뜀)`);
-              continue;
-            }
-
             console.log(`✔ ID ${id} / Grade ${grade} → ${datacenterTitle}`);
 
             results.push({
-              id,
+              id: id,
               prices: { grade, price: datacenterTitle },
             });
-          } catch (err) {
-            console.log(
-              `⛔ ID ${id}, Grade ${grade} → 데이터 없음 또는 에러 발생 (건너뜀)`
-            );
-            continue;
           }
+        } catch (err) {
+          console.error(`❌ Error for ID ${id}, Grade ${grades}:`, err.message);
+          // results.push({
+          // id: id,
+          // prices: { grade, price: "Error" },
+          // });
+        } finally {
+          await page.close();
         }
-      } catch (err) {
-        console.error(`❌ Error for ID ${id}, Grade ${grades}:`, err.message);
-      } finally {
-        await page.close();
       }
     }
 
