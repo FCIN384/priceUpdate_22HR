@@ -106,6 +106,8 @@ async function playerPriceValue(data, Grade) {
                 `.selector_item.en_level${grade}:visible`,
                 { timeout: 5000 }
               );
+              await page.waitForTimeout(150);
+
               const elements = await page.$$(`.selector_item.en_level${grade}`);
               for (const el of elements) {
                 const visible = await el.isVisible();
@@ -116,7 +118,7 @@ async function playerPriceValue(data, Grade) {
               }
 
               // 일부 DOM 갱신 대기
-              await page.waitForTimeout(500);
+              await page.waitForTimeout(200);
 
               // 가격 텍스트가 로드될 때까지 대기
               await page.waitForFunction(
